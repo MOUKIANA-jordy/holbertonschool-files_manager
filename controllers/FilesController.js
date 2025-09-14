@@ -8,7 +8,7 @@ import redisClient from '../utils/redis';
 const ACCEPTED_TYPES = ['folder', 'file', 'image'];
 
 export default class FilesController {
-  // POST /files
+  // Créer un nouveau fichier ou dossier
   static async postUpload(req, res) {
     try {
       const token = req.headers['x-token'];
@@ -23,12 +23,12 @@ export default class FilesController {
       if (!type || !ACCEPTED_TYPES.includes(type)) return res.status(400).json({ error: 'Missing type' });
       if (type !== 'folder' && !data) return res.status(400).json({ error: 'Missing data' });
 
-      let parentObjectId = parentId;
+      let queryParentId = parentId === 0 || parentId === '0' ? 0 : new ObjectId(parentId);
+
       if (parentId !== 0) {
-        const parentFile = await dbClient.db.collection('files').findOne({ _id: new ObjectId(parentId) });
+        const parentFile = await dbClient.db.collection('files').findOne({ _id: queryParentId });
         if (!parentFile) return res.status(400).json({ error: 'Parent not found' });
         if (parentFile.type !== 'folder') return res.status(400).json({ error: 'Parent is not a folder' });
-        parentObjectId = new ObjectId(parentId);
       }
 
       const fileDoc = {
@@ -36,7 +36,7 @@ export default class FilesController {
         name,
         type,
         isPublic,
-        parentId: parentId === 0 ? 0 : parentObjectId,
+        parentId: queryParentId,
       };
 
       if (type !== 'folder') {
@@ -45,6 +45,7 @@ export default class FilesController {
 
         const fileName = uuidv4();
         const filePath = path.join(storagePath, fileName);
+
         fs.writeFileSync(filePath, Buffer.from(data, 'base64'));
         fileDoc.localPath = filePath;
       }
@@ -53,7 +54,7 @@ export default class FilesController {
 
       return res.status(201).json({
         id: result.insertedId,
-        userId: userId,
+        userId,
         name: fileDoc.name,
         type: fileDoc.type,
         isPublic: fileDoc.isPublic,
@@ -64,7 +65,7 @@ export default class FilesController {
     }
   }
 
-  // GET /files/:id
+  // Récupérer un fichier par son ID
   static async getShow(req, res) {
     try {
       const token = req.headers['x-token'];
@@ -74,6 +75,8 @@ export default class FilesController {
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
       const fileId = req.params.id;
+      if (!fileId) return res.status(404).json({ error: 'Not found' });
+
       const file = await dbClient.db.collection('files').findOne({
         _id: new ObjectId(fileId),
         userId: new ObjectId(userId),
@@ -94,7 +97,7 @@ export default class FilesController {
     }
   }
 
-  // GET /files
+  // Lister les fichiers pour un parentId avec pagination
   static async getIndex(req, res) {
     try {
       const token = req.headers['x-token'];
@@ -106,13 +109,15 @@ export default class FilesController {
       const parentId = req.query.parentId || 0;
       const page = parseInt(req.query.page, 10) || 0;
 
+      const queryParentId = parentId === 0 || parentId === '0' ? 0 : new ObjectId(parentId);
+
       const files = await dbClient.db.collection('files')
-        .find({ parentId: parentId === 0 ? 0 : new ObjectId(parentId), userId: new ObjectId(userId) })
+        .find({ parentId: queryParentId, userId: new ObjectId(userId) })
         .skip(page * 20)
         .limit(20)
         .toArray();
 
-      const formattedFiles = files.map(file => ({
+      const result = files.map(file => ({
         id: file._id,
         userId: file.userId,
         name: file.name,
@@ -121,7 +126,7 @@ export default class FilesController {
         parentId: file.parentId,
       }));
 
-      return res.status(200).json(formattedFiles);
+      return res.status(200).json(result);
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
