@@ -17,13 +17,19 @@ export default class FilesController {
       const userId = await redisClient.get(`auth_${token}`);
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-      const { name, type, parentId = 0, isPublic = false, data } = req.body;
+      const {
+        name,
+        type,
+        parentId = 0,
+        isPublic = false,
+        data,
+      } = req.body;
 
       if (!name) return res.status(400).json({ error: 'Missing name' });
       if (!type || !ACCEPTED_TYPES.includes(type)) return res.status(400).json({ error: 'Missing type' });
       if (type !== 'folder' && !data) return res.status(400).json({ error: 'Missing data' });
 
-      let queryParentId = parentId === 0 || parentId === '0' ? 0 : new ObjectId(parentId);
+      const queryParentId = parentId === 0 || parentId === '0' ? 0 : new ObjectId(parentId);
 
       if (parentId !== 0) {
         const parentFile = await dbClient.db.collection('files').findOne({ _id: queryParentId });
@@ -117,7 +123,7 @@ export default class FilesController {
         .limit(20)
         .toArray();
 
-      const result = files.map(file => ({
+      const result = files.map((file) => ({
         id: file._id,
         userId: file.userId,
         name: file.name,
@@ -127,76 +133,6 @@ export default class FilesController {
       }));
 
       return res.status(200).json(result);
-    } catch (err) {
-      return res.status(500).json({ error: err.message });
-    }
-  }
-
-  // Publier un fichier
-  static async putPublish(req, res) {
-    try {
-      const token = req.headers['x-token'];
-      if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-      const userId = await redisClient.get(`auth_${token}`);
-      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-      const { id } = req.params;
-      const file = await dbClient.db.collection('files').findOne({
-        _id: new ObjectId(id),
-        userId: new ObjectId(userId),
-      });
-
-      if (!file) return res.status(404).json({ error: 'Not found' });
-
-      await dbClient.db.collection('files').updateOne(
-        { _id: new ObjectId(id) },
-        { $set: { isPublic: true } },
-      );
-
-      return res.status(200).json({
-        id: file._id,
-        userId: file.userId,
-        name: file.name,
-        type: file.type,
-        isPublic: true,
-        parentId: file.parentId,
-      });
-    } catch (err) {
-      return res.status(500).json({ error: err.message });
-    }
-  }
-
-  // Dépublier un fichier
-  static async putUnpublish(req, res) {
-    try {
-      const token = req.headers['x-token'];
-      if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-      const userId = await redisClient.get(`auth_${token}`);
-      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-      const { id } = req.params;
-      const file = await dbClient.db.collection('files').findOne({
-        _id: new ObjectId(id),
-        userId: new ObjectId(userId),
-      });
-
-      if (!file) return res.status(404).json({ error: 'Not found' });
-
-      await dbClient.db.collection('files').updateOne(
-        { _id: new ObjectId(id) },
-        { $set: { isPublic: false } },
-      );
-
-      return res.status(200).json({
-        id: file._id,
-        userId: file.userId,
-        name: file.name,
-        type: file.type,
-        isPublic: false,
-        parentId: file.parentId,
-      });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
