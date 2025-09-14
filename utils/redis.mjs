@@ -13,9 +13,8 @@ class RedisClient {
       console.log('Redis client connected to the server');
     });
 
+    // Promisify pour pouvoir utiliser await avec get
     this.getAsync = promisify(this.client.get).bind(this.client);
-    this.setAsync = promisify(this.client.setex).bind(this.client);
-    this.delAsync = promisify(this.client.del).bind(this.client);
   }
 
   isAlive() {
@@ -27,14 +26,12 @@ class RedisClient {
   }
 
   async set(key, value, duration) {
-  if (value === undefined) throw new Error('Redis value cannot be undefined');
-  return this.setAsync(key, duration, value.toString());
-}
-
+    // Définit une clé avec expiration
+    this.client.setex(key, duration, value);
   }
 
   async del(key) {
-    return this.delAsync(key);
+    this.client.del(key);
   }
 }
 

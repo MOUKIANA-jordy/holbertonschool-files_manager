@@ -1,9 +1,7 @@
 import crypto from 'crypto';
 import dbClient from '../utils/db';
-import redisClient from '../utils/redis';
 
 export default class UsersController {
-  // Créer un nouvel utilisateur
   static async postNew(req, res) {
     const { email, password } = req.body;
 
@@ -33,33 +31,6 @@ export default class UsersController {
     return res.status(201).json({
       id: result.insertedId,
       email,
-    });
-  }
-
-  // Récupérer l'utilisateur via le token
-  static async getMe(req, res) {
-    const token = req.header('X-Token');
-    if (!token) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    const userId = await redisClient.get(`auth_${token}`);
-    if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    const user = await dbClient.db.collection('users').findOne(
-      { _id: new (require('mongodb').ObjectId)(userId) },
-      { projection: { email: 1 } }
-    );
-
-    if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    return res.status(200).json({
-      id: user._id,
-      email: user.email,
     });
   }
 }
