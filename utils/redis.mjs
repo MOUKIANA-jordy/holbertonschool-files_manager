@@ -14,6 +14,8 @@ class RedisClient {
     });
 
     this.getAsync = promisify(this.client.get).bind(this.client);
+    this.setAsync = promisify(this.client.setex).bind(this.client);
+    this.delAsync = promisify(this.client.del).bind(this.client);
   }
 
   isAlive() {
@@ -25,11 +27,14 @@ class RedisClient {
   }
 
   async set(key, value, duration) {
-    this.client.setex(key, duration, value);
+    if (!key || value === undefined || !Number.isInteger(duration)) {
+      throw new Error('Redis set: invalid key, value, or duration');
+    }
+    return this.setAsync(key, duration, value);
   }
 
   async del(key) {
-    this.client.del(key);
+    return this.delAsync(key);
   }
 }
 
