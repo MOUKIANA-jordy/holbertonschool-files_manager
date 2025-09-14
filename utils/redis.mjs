@@ -27,10 +27,10 @@ class RedisClient {
   }
 
   async set(key, value, duration) {
-    if (!key || value === undefined || !Number.isInteger(duration)) {
-      throw new Error('Redis set: invalid key, value, or duration');
-    }
-    return this.setAsync(key, duration, value);
+  if (value === undefined) throw new Error('Redis value cannot be undefined');
+  return this.setAsync(key, duration, value.toString());
+}
+
   }
 
   async del(key) {
