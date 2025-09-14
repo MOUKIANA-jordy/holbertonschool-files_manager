@@ -131,4 +131,74 @@ export default class FilesController {
       return res.status(500).json({ error: err.message });
     }
   }
+
+  // Publier un fichier
+  static async putPublish(req, res) {
+    try {
+      const token = req.headers['x-token'];
+      if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+      const userId = await redisClient.get(`auth_${token}`);
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+      const { id } = req.params;
+      const file = await dbClient.db.collection('files').findOne({
+        _id: new ObjectId(id),
+        userId: new ObjectId(userId),
+      });
+
+      if (!file) return res.status(404).json({ error: 'Not found' });
+
+      await dbClient.db.collection('files').updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { isPublic: true } },
+      );
+
+      return res.status(200).json({
+        id: file._id,
+        userId: file.userId,
+        name: file.name,
+        type: file.type,
+        isPublic: true,
+        parentId: file.parentId,
+      });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // Dépublier un fichier
+  static async putUnpublish(req, res) {
+    try {
+      const token = req.headers['x-token'];
+      if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+      const userId = await redisClient.get(`auth_${token}`);
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+      const { id } = req.params;
+      const file = await dbClient.db.collection('files').findOne({
+        _id: new ObjectId(id),
+        userId: new ObjectId(userId),
+      });
+
+      if (!file) return res.status(404).json({ error: 'Not found' });
+
+      await dbClient.db.collection('files').updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { isPublic: false } },
+      );
+
+      return res.status(200).json({
+        id: file._id,
+        userId: file.userId,
+        name: file.name,
+        type: file.type,
+        isPublic: false,
+        parentId: file.parentId,
+      });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
 }
