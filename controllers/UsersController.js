@@ -1,7 +1,8 @@
 import crypto from 'crypto';
+import { ObjectId } from 'mongodb';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
-import { ObjectId } from 'mongodb';
+import sha1 from 'sha1';
 
 export default class UsersController {
   // Création d'un nouvel utilisateur
