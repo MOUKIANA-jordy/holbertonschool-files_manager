@@ -1,4 +1,5 @@
 import pkg from 'mongodb';
+
 const { MongoClient } = pkg;
 
 class DBClient {
@@ -11,7 +12,7 @@ class DBClient {
     this.databaseName = database;
     this.client = new MongoClient(this.url, {
       useNewUrlParser: true,
-      useUnifiedTopology: true
+      useUnifiedTopology: true,
     });
     this.db = null;
     this.connected = false;
@@ -46,4 +47,3 @@ class DBClient {
 
 const dbClient = new DBClient();
 export default dbClient;
-
