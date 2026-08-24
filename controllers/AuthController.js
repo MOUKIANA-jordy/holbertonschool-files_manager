@@ -7,15 +7,39 @@ class AuthController {
   static async getConnect(request, response) {
     const authorization = request.header('Authorization');
 
-    if (!authorization || !authorization.startsWith('Basic ')) {
+    if (!authorization) {
       return response.status(401).json({ error: 'Unauthorized' });
     }
 
-    const encodedCredentials = authorization.split(' ')[1];
-    const decodedCredentials = Buffer.from(
-      encodedCredentials,
-      'base64',
-    ).toString('utf-8');
+    const authorizationParts = authorization.split(' ');
+
+    if (
+      authorizationParts.length !== 2
+      || authorizationParts[0] !== 'Basic'
+    ) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const encodedCredentials = authorizationParts[1];
+    const base64Pattern = /^[A-Za-z0-9+/]+={0,2}$/;
+
+    if (
+      !base64Pattern.test(encodedCredentials)
+      || encodedCredentials.length % 4 !== 0
+    ) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+
+    let decodedCredentials;
+
+    try {
+      decodedCredentials = Buffer.from(
+        encodedCredentials,
+        'base64',
+      ).toString('utf-8');
+    } catch (error) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
 
     const separatorIndex = decodedCredentials.indexOf(':');
 
@@ -25,6 +49,10 @@ class AuthController {
 
     const email = decodedCredentials.substring(0, separatorIndex);
     const password = decodedCredentials.substring(separatorIndex + 1);
+
+    if (!email || !password) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
 
     const usersCollection = dbClient.client
       .db(dbClient.databaseName)
