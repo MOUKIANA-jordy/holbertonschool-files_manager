@@ -1,5 +1,5 @@
 import sha1 from 'sha1';
-import dbClient from '../utils/db';
+import dbClient from '../utils/db.mjs';
 
 class UsersController {
   static async postNew(request, response) {
@@ -13,7 +13,7 @@ class UsersController {
       return response.status(400).json({ error: 'Missing password' });
     }
 
-    const database = dbClient.client.db(dbClient.database);
+    const database = dbClient.client.db(dbClient.databaseName);
     const usersCollection = database.collection('users');
 
     const existingUser = await usersCollection.findOne({ email });
@@ -28,7 +28,7 @@ class UsersController {
     });
 
     return response.status(201).json({
-      id: result.insertedId,
+      id: result.insertedId.toString(),
       email,
     });
   }
