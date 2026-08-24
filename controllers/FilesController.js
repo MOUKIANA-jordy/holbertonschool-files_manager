@@ -2,11 +2,13 @@ import fs from 'fs';
 import path from 'path';
 import pkg from 'mongodb';
 import mime from 'mime-types';
+import Queue from 'bull';
 import { v4 as uuidv4 } from 'uuid';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
 const { ObjectId } = pkg;
+const fileQueue = new Queue('fileQueue');
 
 const formatFile = (file) => ({
   id: file._id.toString(),
@@ -105,6 +107,13 @@ class FilesController {
     }
 
     const result = await filesCollection.insertOne(newFile);
+
+    if (type === 'image') {
+      await fileQueue.add({
+        userId,
+        fileId: result.insertedId.toString(),
+      });
+    }
 
     return response.status(201).json({
       id: result.insertedId.toString(),
@@ -286,6 +295,7 @@ class FilesController {
 
   static async getFile(request, response) {
     const { id } = request.params;
+    const { size } = request.query;
 
     if (!ObjectId.isValid(id)) {
       return response.status(404).json({ error: 'Not found' });
@@ -327,13 +337,24 @@ class FilesController {
       return response.status(404).json({ error: 'Not found' });
     }
 
+    const validSizes = ['500', '250', '100'];
+    let requestedPath = file.localPath;
+
+    if (size) {
+      if (!validSizes.includes(size)) {
+        return response.status(404).json({ error: 'Not found' });
+      }
+
+      requestedPath = `${file.localPath}_${size}`;
+    }
+
     try {
-      await fs.promises.access(file.localPath);
+      await fs.promises.access(requestedPath);
     } catch (error) {
       return response.status(404).json({ error: 'Not found' });
     }
 
-    const fileContent = await fs.promises.readFile(file.localPath);
+    const fileContent = await fs.promises.readFile(requestedPath);
     const mimeType = mime.lookup(file.name) || 'application/octet-stream';
 
     response.setHeader('Content-Type', mimeType);
