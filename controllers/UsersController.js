@@ -1,5 +1,5 @@
 import sha1 from 'sha1';
-import dbClient from '../utils/db.mjs';
+import dbClient from '../utils/db';
 
 class UsersController {
   static async postNew(request, response) {
