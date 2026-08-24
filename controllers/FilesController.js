@@ -198,6 +198,90 @@ class FilesController {
 
     return response.status(200).json(files.map(formatFile));
   }
+
+  static async putPublish(request, response) {
+    const token = request.header('X-Token');
+
+    if (!token) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const userId = await redisClient.get(`auth_${token}`);
+
+    if (!userId) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { id } = request.params;
+
+    if (!ObjectId.isValid(id)) {
+      return response.status(404).json({ error: 'Not found' });
+    }
+
+    const filesCollection = dbClient.client
+      .db(dbClient.databaseName)
+      .collection('files');
+
+    const file = await filesCollection.findOne({
+      _id: new ObjectId(id),
+      userId: new ObjectId(userId),
+    });
+
+    if (!file) {
+      return response.status(404).json({ error: 'Not found' });
+    }
+
+    await filesCollection.updateOne(
+      { _id: file._id },
+      { $set: { isPublic: true } },
+    );
+
+    file.isPublic = true;
+
+    return response.status(200).json(formatFile(file));
+  }
+
+  static async putUnpublish(request, response) {
+    const token = request.header('X-Token');
+
+    if (!token) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const userId = await redisClient.get(`auth_${token}`);
+
+    if (!userId) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { id } = request.params;
+
+    if (!ObjectId.isValid(id)) {
+      return response.status(404).json({ error: 'Not found' });
+    }
+
+    const filesCollection = dbClient.client
+      .db(dbClient.databaseName)
+      .collection('files');
+
+    const file = await filesCollection.findOne({
+      _id: new ObjectId(id),
+      userId: new ObjectId(userId),
+    });
+
+    if (!file) {
+      return response.status(404).json({ error: 'Not found' });
+    }
+
+    await filesCollection.updateOne(
+      { _id: file._id },
+      { $set: { isPublic: false } },
+    );
+
+    file.isPublic = false;
+
+    return response.status(200).json(formatFile(file));
+  }
 }
 
 export default FilesController;
