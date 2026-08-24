@@ -7,6 +7,17 @@ import redisClient from '../utils/redis';
 
 const { ObjectId } = pkg;
 
+const formatFile = (file) => ({
+  id: file._id.toString(),
+  userId: file.userId.toString(),
+  name: file.name,
+  type: file.type,
+  isPublic: file.isPublic === true,
+  parentId: file.parentId === 0 || file.parentId === '0'
+    ? 0
+    : file.parentId.toString(),
+});
+
 class FilesController {
   static async postUpload(request, response) {
     const token = request.header('X-Token');
@@ -28,7 +39,7 @@ class FilesController {
     } = request.body;
 
     const parentId = request.body.parentId || 0;
-    const isPublic = request.body.isPublic || false;
+    const isPublic = request.body.isPublic === true;
     const validTypes = ['folder', 'file', 'image'];
 
     if (!name) {
@@ -104,6 +115,88 @@ class FilesController {
         ? 0
         : databaseParentId.toString(),
     });
+  }
+
+  static async getShow(request, response) {
+    const token = request.header('X-Token');
+
+    if (!token) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const userId = await redisClient.get(`auth_${token}`);
+
+    if (!userId) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { id } = request.params;
+
+    if (!ObjectId.isValid(id)) {
+      return response.status(404).json({ error: 'Not found' });
+    }
+
+    const filesCollection = dbClient.client
+      .db(dbClient.databaseName)
+      .collection('files');
+
+    const file = await filesCollection.findOne({
+      _id: new ObjectId(id),
+      userId: new ObjectId(userId),
+    });
+
+    if (!file) {
+      return response.status(404).json({ error: 'Not found' });
+    }
+
+    return response.status(200).json(formatFile(file));
+  }
+
+  static async getIndex(request, response) {
+    const token = request.header('X-Token');
+
+    if (!token) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const userId = await redisClient.get(`auth_${token}`);
+
+    if (!userId) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const requestedParentId = request.query.parentId || 0;
+    const requestedPage = Number.parseInt(request.query.page, 10);
+    const page = Number.isNaN(requestedPage)
+      ? 0
+      : Math.max(requestedPage, 0);
+
+    let parentFilter;
+
+    if (requestedParentId === 0 || requestedParentId === '0') {
+      parentFilter = { $in: [0, '0'] };
+    } else if (ObjectId.isValid(requestedParentId)) {
+      parentFilter = new ObjectId(requestedParentId);
+    } else {
+      return response.status(200).json([]);
+    }
+
+    const filesCollection = dbClient.client
+      .db(dbClient.databaseName)
+      .collection('files');
+
+    const files = await filesCollection.aggregate([
+      {
+        $match: {
+          userId: new ObjectId(userId),
+          parentId: parentFilter,
+        },
+      },
+      { $skip: page * 20 },
+      { $limit: 20 },
+    ]).toArray();
+
+    return response.status(200).json(files.map(formatFile));
   }
 }
 
